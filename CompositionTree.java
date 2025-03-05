@@ -120,17 +120,13 @@ public class CompositionTree{
         this.initializeCompositionTree(vertexesNumber);
         this.addNodes(vertexesNumber);
         this.removeDoubleQRecursive(root);
-        this.removeRedundantEdges();
-        //this.checkWhereEdgesCanBeAdded();
-        //this.addNewEdgesInParallel();
-        //this.checkWhereSeriesCanBecomeParallels();
-        //this.changeAllSeriesToParallels();
-        //this.removeParallels();
-        this.print(System.out);
-        //this.printDatas();
-        //reverse();
-        //recursive();
-        if(leaves.size() != graphVertexes - 1)
+        this.removeRedundantLeaves();
+        this.removeParallels();
+        //this.print(System.out);
+        this.printDatas();
+        reverse();
+        recursive();
+        if(leaves.size() != 2 * graphVertexes - 3)
             System.out.println("ERROR: " + leaves.size());
     }
 
@@ -195,27 +191,6 @@ public class CompositionTree{
     //-------------------------------------------//
     //          ADD/REMOVE NODES METHODS         //
     //-------------------------------------------//
-    private void addNode(Node node){
-        this.binaryTree.add(node);
-        if (node.isS())
-            this.series.add(node);
-        else if (node.isP())
-            this.parallels.add(node);
-        else
-            this.leaves.add(node);
-    }
-
-    private void removeNode(Node node){
-        node.leftChild = node.rightChild = node.parent = null;
-        this.binaryTree.remove(node);
-        if (node.isS())
-            this.series.remove(node);
-        else if (node.isP())
-            this.parallels.remove(node);
-        else
-            this.leaves.remove(node);
-    }
-
     private void addNodes(int vertexesNumber){
         while(this.graphVertexes < vertexesNumber){
             if(Graph.getRandomGenerator().nextBoolean()){
@@ -240,6 +215,16 @@ public class CompositionTree{
         randomNode.setChildren(leftChild, rightChild);
         this.addNode(leftChild);
         this.addNode(rightChild);
+    }
+
+    private void addNode(Node node){
+        this.binaryTree.add(node);
+        if (node.isS())
+            this.series.add(node);
+        else if (node.isP())
+            this.parallels.add(node);
+        else
+            this.leaves.add(node);
     }
 
     private void addNewEdgeInSeriesOrParallel(TreeType type, Node node){
@@ -269,8 +254,7 @@ public class CompositionTree{
         if(originalParent.equals(root)){
             this.root = originalSibling;
             originalSibling.setParent(null);
-            //this.removeNode(originalGrandparent);
-        } else{
+        } else { // originalParent is not root
             originalSibling.setParent(originalGrandparent);
             if(originalParent.isRightChild())
                 originalGrandparent.rightChild = originalSibling;
@@ -281,10 +265,21 @@ public class CompositionTree{
         this.removeNode(leaf);
     }
 
+    private void removeNode(Node node){
+        node.leftChild = node.rightChild = node.parent = null;
+        this.binaryTree.remove(node);
+        if (node.isS())
+            this.series.remove(node);
+        else if (node.isP())
+            this.parallels.remove(node);
+        else
+            this.leaves.remove(node);
+    }
 
-    //-------------------------------------------------//
-    //          REMOVE REDUNDANT EDGES METHODS         //
-    //-------------------------------------------------//
+
+    //----------------------------------------------//
+    //          REMOVE REDUNDANT Qs METHODS         //
+    //----------------------------------------------//
     private void removeDoubleQRecursive(Node node){
         if(!node.leftChild.isQ())
             this.removeDoubleQRecursive(node.leftChild);
@@ -295,12 +290,11 @@ public class CompositionTree{
             this.removeLeafAndParent(node.leftChild);
     }
 
-    private void removeRedundantEdges(){
+    private void removeRedundantLeaves(){
         this.nodesToVisit.add(root);
-        while(!nodesToVisit.isEmpty())
+        while(!this.nodesToVisit.isEmpty())
             this.checkIfLeafHasToBeRemoved(nodesToVisit.remove(0));
-
-        while(!leavesToRemove.isEmpty())
+        while(!this.leavesToRemove.isEmpty())
             this.removeLeafAndParent(leavesToRemove.remove(0));
     }
 
@@ -309,19 +303,9 @@ public class CompositionTree{
             this.nodesToVisit.add(node.leftChild);
             this.nodesToVisit.add(node.rightChild);
         } else if(node.isP() /*&& (node.areChildrenParallels() || node.isOneChildLeaf() && node.isOneChildParallel())*/){
-            this.checkIfNodeHasPQDescendant(node.leftChild);
-            this.checkIfNodeHasPQDescendant(node.rightChild);
+            this.checkIfNodeHasPQDescendants(node.leftChild);
+            this.checkIfNodeHasPQDescendants(node.rightChild);
         }
-    }
-
-    private void checkIfNodeHasPQDescendant(Node node){
-        if(node.isQ())
-            this.leavesToRemove.add(node);
-        else if(node.isP()){
-            this.checkIfNodeHasPQDescendant(node.leftChild);
-            this.checkIfNodeHasPQDescendant(node.rightChild);
-        } else // node.type == TreeType.S
-            this.nodesToVisit.add(node);
     }
 
 
@@ -339,21 +323,11 @@ public class CompositionTree{
             this.possibleEdges.add(node);
             this.nodesToVisit.add(node.leftChild);
             this.nodesToVisit.add(node.rightChild);
-        } else if (node.isP() && !this.checkIfNodeHasPQDescendant2(node))
+        } else if (node.isP() && !this.checkIfNodeHasPQDescendants2(node))
             this.possibleEdges.add(node);
     }
 
-    private boolean checkIfNodeHasPQDescendant2(Node node){
-        if (node.isQ())
-            return true;
-        else if (node.isP())
-            return this.checkIfNodeHasPQDescendant2(node.leftChild) | this.checkIfNodeHasPQDescendant2(node.rightChild);
-        else{ // node.type == TreeType.S
-            this.nodesToVisit.add(node.leftChild);
-            this.nodesToVisit.add(node.rightChild);
-            return false;
-        }
-    }
+    
 
     private void addNewEdgesInParallel(){
         while (!possibleEdges.isEmpty()) {
@@ -381,21 +355,10 @@ public class CompositionTree{
             this.nodesToVisit.add(node.leftChild);
             this.nodesToVisit.add(node.rightChild);
         } else if(node.isS() && node.isAtLeastOneChildParallel()){
-            boolean leftLeafFound = this.checkIfNodeHasPQDescendant3(node.leftChild);
-            boolean rightLeafFound = this.checkIfNodeHasPQDescendant3(node.rightChild);
+            boolean leftLeafFound = this.checkIfNodeHasPQDescendants3(node.leftChild);
+            boolean rightLeafFound = this.checkIfNodeHasPQDescendants3(node.rightChild);
             if(!(leftLeafFound && rightLeafFound))
                 this.fromSeriesToParallel.add(node);
-        }
-    }
-
-    private boolean checkIfNodeHasPQDescendant3(Node node){
-        if (node.isQ())
-            return true;
-        else if (node.isP())
-            return this.checkIfNodeHasPQDescendant3(node.leftChild) | this.checkIfNodeHasPQDescendant3(node.rightChild);
-        else{ // node.type == TreeType.S
-            this.nodesToVisit.add(node);
-            return false;
         }
     }
 
@@ -406,18 +369,9 @@ public class CompositionTree{
             node.type = TreeType.P;
             this.series.remove(node);
             this.parallels.add(node);
-            if(!this.checkIfNodeHasPQDescendant4(node))
+            if(!this.checkIfNodeHasPQDescendants4(node))
                 fromSeriesToParallel.add(node.parent);
         }
-    }
-
-    private boolean checkIfNodeHasPQDescendant4(Node node){
-        if (node.isQ())
-            return true;
-        else if (node.isP())
-            return this.checkIfNodeHasPQDescendant4(node.leftChild) | this.checkIfNodeHasPQDescendant4(node.rightChild);
-        else // node.type == TreeType.S
-            return false;
     }
 
 
@@ -426,28 +380,64 @@ public class CompositionTree{
     //-----------------------------------------------------//
     private void removeParallels(){
         while (!this.parallels.isEmpty()) {
-            int randomIndex = Graph.getRandomGenerator().nextInt(this.parallels.size());
-            Node randomParallelToChange = this.parallels.remove(randomIndex);
-            randomParallelToChange.type = TreeType.S;
-            this.series.add(randomParallelToChange);
-
             Node randomLeafToRemove = this.getLeafInSeriesWithAnotherLeaf();
             Node originalLeafGrandparent = randomLeafToRemove.parent.parent;
             Node originalLeafUncle = randomLeafToRemove.parent.getSibling();
+            
+            int randomIndex = Graph.getRandomGenerator().nextInt(this.parallels.size());
+            Node randomParallelToChange = this.parallels.get(randomIndex);
+            if(originalLeafGrandparent.isP() && this.checkIfNodeHasPQDescendants4(originalLeafUncle)) // o togli tutti i P-Q o metti questa condizione per vedere quali S-QQ poter usare
+                randomParallelToChange = originalLeafGrandparent;
+
+            randomParallelToChange.type = TreeType.S;
+            this.parallels.remove(randomParallelToChange);
+            this.series.add(randomParallelToChange);
             this.removeLeafAndParent(randomLeafToRemove);
-            if(originalLeafGrandparent.isP() && this.checkIfNodeHasPQDescendant5(originalLeafUncle)){ // o togli tutti i P-Q o metti questa condizione per vedere quali S-QQ poter usare
-                //System.out.println(this.leavesToRemove.size());
-                this.removeLeafAndParent(this.leavesToRemove.remove(0));
-            }
         }
     }
 
-    private boolean checkIfNodeHasPQDescendant5(Node node){
-        if (node.isQ()){
+
+    //-----------------------------------------------------------//
+    //          CHECK IF NODE HAS PQ DESCENDANTS METHODS         //
+    //-----------------------------------------------------------//
+    private void checkIfNodeHasPQDescendants(Node node){
+        if(node.isQ())
             this.leavesToRemove.add(node);
+        else if(node.isP()){
+            this.checkIfNodeHasPQDescendants(node.leftChild);
+            this.checkIfNodeHasPQDescendants(node.rightChild);
+        } else // node.type == TreeType.S
+            this.nodesToVisit.add(node);
+    }
+
+    private boolean checkIfNodeHasPQDescendants2(Node node){
+        if (node.isQ())
             return true;
-        } else if (node.isP())
-            return this.checkIfNodeHasPQDescendant5(node.leftChild) | this.checkIfNodeHasPQDescendant5(node.rightChild);
+        else if (node.isP())
+            return this.checkIfNodeHasPQDescendants2(node.leftChild) | this.checkIfNodeHasPQDescendants2(node.rightChild);
+        else{ // node.type == TreeType.S
+            this.nodesToVisit.add(node.leftChild);
+            this.nodesToVisit.add(node.rightChild);
+            return false;
+        }
+    }
+
+    private boolean checkIfNodeHasPQDescendants3(Node node){
+        if (node.isQ())
+            return true;
+        else if (node.isP())
+            return this.checkIfNodeHasPQDescendants3(node.leftChild) | this.checkIfNodeHasPQDescendants3(node.rightChild);
+        else{ // node.type == TreeType.S
+            this.nodesToVisit.add(node);
+            return false;
+        }
+    }
+    
+    private boolean checkIfNodeHasPQDescendants4(Node node){
+        if (node.isQ())
+            return true;
+        else if (node.isP())
+            return this.checkIfNodeHasPQDescendants4(node.leftChild) | this.checkIfNodeHasPQDescendants4(node.rightChild);
         else // node.type == TreeType.S
             return false;
     }
@@ -480,12 +470,12 @@ public class CompositionTree{
         }
         int total = series + parallels + edges;
         System.out.println("Composition: \t\t" + series + " " + parallels + " "+ edges + " " + total);
-        System.out.println("CompositionArrayLists: \t\t" + this.series.size() + " " + this.parallels.size() + " "+ this.leaves.size() + " " + this.binaryTree.size());
+        System.out.println("CompositionArrayLists: \t" + this.series.size() + " " + this.parallels.size() + " "+ this.leaves.size() + " " + this.binaryTree.size());
     }
 
     private void recursive(){
         this.recursive(root);
-        System.out.println("Nodes visited from root to leaves: " + number);
+        System.out.println("Nodes visited from root to leaves:  " + number);
     }
 
     private void recursive(Node node){
@@ -500,7 +490,7 @@ public class CompositionTree{
         visited = new ArrayList<>();
         for(Node node: leaves)
             reverseRecursive(node);
-        System.out.println("Nodes visited from leaves to root: " + visited.size());
+        System.out.println("Nodes visited from leaves to root:  " + visited.size());
     }
 
     private void reverseRecursive(Node node){
